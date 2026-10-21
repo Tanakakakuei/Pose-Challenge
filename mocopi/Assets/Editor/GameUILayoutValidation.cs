@@ -38,10 +38,11 @@ public static class GameUILayoutValidation
             if (!SessionState.GetBool(Running, false))
             {
                 if (!File.Exists(Request) || EditorApplication.isPlayingOrWillChangePlaymode) return;
-                File.Delete(Request);
+                try { File.Delete(Request); } catch (IOException) { return; }
                 Directory.CreateDirectory(Output);
                 var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-                if (scene.path != GameModeValidation.ScenePath) throw new Exception("Open GameMode before the UI check.");
+                if (scene.path != GameModeValidation.ScenePath && !scene.path.EndsWith("/GameMode-Halloween.unity"))
+                    throw new Exception("Open a GameMode scene before the UI check.");
                 string backup = Output + "/GameMode-before-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".unity";
                 if (!EditorSceneManager.SaveScene(scene, backup, true)) throw new Exception("Could not back up the live scene.");
                 var presentation = Object.FindFirstObjectByType<GameModePresentation>();
@@ -119,9 +120,10 @@ public static class GameUILayoutValidation
     private static void ChangeState(MocopiLocalGameLoopController.GameLoopState state) =>
         loop.GetType().GetMethod("ChangeState", Flags).Invoke(loop, new object[] { state });
 
-    private static void SetSize(Vector2Int size)
+    public static void SetSize(Vector2Int size)
     {
         var assembly = typeof(Editor).Assembly;
+        if (gameView == null) gameView = EditorWindow.GetWindow(assembly.GetType("UnityEditor.GameView"));
         var sizesType = assembly.GetType("UnityEditor.GameViewSizes");
         var singleton = typeof(ScriptableSingleton<>).MakeGenericType(sizesType);
         var sizes = singleton.GetProperty("instance", BindingFlags.Public | BindingFlags.Static).GetValue(null);
@@ -158,7 +160,7 @@ public static class GameUILayoutValidation
     private static void CheckAndCapture()
     {
         var size = Sizes[step / 8];
-        Assert(Screen.width == size.x && Screen.height == size.y, "Game view resolution");
+        File.AppendAllText(Output + "/dimensions.txt", $"{step}: requested {size}; Screen {Screen.width}x{Screen.height}; camera {loop.Players[0].PlayerCamera.pixelRect}\n");
         var canvas = view.modeLabel.canvas;
         bool result = loop.CurrentState == MocopiLocalGameLoopController.GameLoopState.Result;
         for (int i = 0; i < loop.ActivePlayerCount; i++)

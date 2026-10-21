@@ -1,0 +1,2 @@
+HALLOWEEN_SETUP_PASSED
+Per arena: 12 pumpkins, 16 animated bats, harvest moon, 6 grave markers, 2 mist and 2 ember emitters. No decorative colliders. Isolated player layers.

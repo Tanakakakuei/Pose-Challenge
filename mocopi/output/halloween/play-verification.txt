@@ -1,0 +1,1 @@
+HALLOWEEN_PLAY_PASSED: full-HD solo and two-player selection, countdown and gameplay; bat animation; isolated layers; no prop colliders; celebration.

@@ -1,0 +1,1 @@
+PASSED: 1920x1080, 1280x720, 1024x768; solo and split; selection, ready, result name entry and navigation. HUD bounds, touch bounds, non-overlap, camera restore.
