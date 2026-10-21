@@ -49,6 +49,6 @@ MonoBehaviour:
   rows: 52
   columns: 42
   cubeSize: 0.2
-  cubeMaterial: {fileID: 0}
+  cubeMaterial: {fileID: 2100000, guid: 2122e3aa1fde20344b07c0a42cfcec97, type: 2}
   showSizePreview: 1
   previewColor: {r: 0.1, g: 0.8, b: 1, a: 0.85}

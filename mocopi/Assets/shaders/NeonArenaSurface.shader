@@ -6,6 +6,9 @@ Shader "Mocopi/Neon Arena Surface"
         [HDR] _NeonColor ("Neon", Color) = (0.1,2,3,1)
         _Mode ("0 metal / 1 floor / 2 wall / 3 light", Float) = 0
         _Glow ("Glow", Range(0,5)) = 1
+        [HDR] _HoleGlowColor ("Hole outline emission", Color) = (0.65,3.2,1,1)
+        _HoleEdgeWidth ("Hole outline width (cell fraction)", Range(0.01,0.2)) = 0.06
+        [HideInInspector] _HoleEdges ("Hole edges: left, right, bottom, top", Vector) = (0,0,0,0)
     }
     SubShader
     {
@@ -20,11 +23,14 @@ Shader "Mocopi/Neon Arena Surface"
             #include "UnityCG.cginc"
             float4 _Color, _NeonColor;
             float _Mode, _Glow;
-            struct v2f { float4 pos:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; UNITY_FOG_COORDS(3) };
+            float4 _HoleEdges, _HoleGlowColor;
+            float _HoleEdgeWidth;
+            struct v2f { float4 pos:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; UNITY_FOG_COORDS(3) float3 local:TEXCOORD4; float3 localNormal:TEXCOORD5; };
             v2f vert(appdata_base v)
             {
                 v2f o; o.pos=UnityObjectToClipPos(v.vertex); o.world=mul(unity_ObjectToWorld,v.vertex).xyz;
                 o.normal=UnityObjectToWorldNormal(v.normal); o.uv=v.texcoord;
+                o.local=v.vertex.xyz; o.localNormal=v.normal;
                 UNITY_TRANSFER_FOG(o,o.pos); return o;
             }
             float grid(float2 p, float width)
@@ -45,9 +51,16 @@ Shader "Mocopi/Neon Arena Surface"
                 {
                     float edge=1-smoothstep(0.015,0.055,min(min(i.uv.x,1-i.uv.x),min(i.uv.y,1-i.uv.y)));
                     float scan=pow(saturate(1-abs(frac(i.world.y*0.18-_Time.y*0.07)-0.5)*2),18);
-                    // Neutral white faces, soft side shading and a restrained cell seam keep holes legible.
+                    // Tinted faces retain subtle seams; only hole-facing edges emit green light.
                     float face=0.78+0.22*abs(dot(n,normalize(UnityObjectToWorldNormal(float3(0,0,1)))));
                     c=_Color.rgb*face*(1-edge*0.10)+_NeonColor.rgb*(edge*0.12+rim*0.12+scan*0.055)*_Glow;
+                    // Cube-local positions avoid mirrored/rotated UVs on the two wall faces.
+                    float4 distances=float4(i.local.x+0.5,0.5-i.local.x,i.local.y+0.5,0.5-i.local.y);
+                    float4 aa=max(fwidth(distances),0.001);
+                    float4 lines=(1-smoothstep(_HoleEdgeWidth-aa,_HoleEdgeWidth+aa,distances))*_HoleEdges;
+                    float outline=max(max(lines.x,lines.y),max(lines.z,lines.w));
+                    outline*=step(0.9,abs(i.localNormal.z));
+                    c=lerp(c,_HoleGlowColor.rgb,outline);
                 }
                 else if(_Mode>0.5)
                 {

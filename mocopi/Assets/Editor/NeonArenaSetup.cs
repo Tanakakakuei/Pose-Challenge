@@ -37,8 +37,10 @@ public static class NeonArenaSetup
         Material violet = Surface("Ultraviolet", Color.black, new Color(1.4f, 0.16f, 3.2f), 3);
         Material white = Surface("IceWhite", Color.black, new Color(1.7f, 2.5f, 2.8f), 3);
         Material dim = Surface("DistantBlue", Color.black, new Color(0.015f, 0.22f, 0.48f), 3);
-        Material wall = Surface("PoseWall", new Color(0.88f, 0.91f, 0.95f), new Color(0.18f, 0.28f, 0.4f), 2);
+        Material wall = Surface("PoseWall", new Color32(146, 155, 194, 255), new Color(0.18f, 0.28f, 0.4f), 2);
         wall.SetFloat("_Glow", 0.25f);
+        wall.SetColor("_HoleGlowColor", new Color(0.65f, 3.2f, 1f));
+        wall.SetFloat("_HoleEdgeWidth", 0.06f);
         Material sky = AssetDatabase.LoadAssetAtPath<Material>(Folder + "/NightSky.mat");
         if (sky == null)
         {

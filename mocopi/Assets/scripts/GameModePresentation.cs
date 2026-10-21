@@ -23,6 +23,10 @@ public class GameModePresentation : MonoBehaviour
     public TouchableUIPanel[] readyButtons = Array.Empty<TouchableUIPanel>();
     private float anchorUntil;
     private PlayerHud[] playerHuds;
+    private ResultLeaderboardPanel leaderboardPanel;
+    private bool wasEnteringName;
+    private Rect[] resultCameraRects;
+    private bool resultViewportActive;
     private sealed class PlayerHud
     {
         public RectTransform root;
@@ -54,6 +58,7 @@ public class GameModePresentation : MonoBehaviour
             station.root.position = position;
         }
         var canvas = modeLabel.canvas.transform;
+        ConfigureCanvas(canvas.GetComponent<CanvasScaler>());
         var children = new System.Collections.Generic.List<RectTransform>();
         foreach (Transform child in canvas) children.Add((RectTransform)child);
         var viewport = (RectTransform)new GameObject("1P_HUD", typeof(RectTransform), typeof(RectMask2D)).transform;
@@ -88,6 +93,8 @@ public class GameModePresentation : MonoBehaviour
             foreach (var label in GetComponentsInChildren<Text>(true)) label.font = font;
             foreach (var panel in GetComponentsInChildren<TouchableUIPanel>(true)) panel.SetFont(font);
         }
+        leaderboardPanel = gameObject.AddComponent<ResultLeaderboardPanel>();
+        leaderboardPanel.Initialize(controller, canvas, font != null ? font : modeLabel.font);
     }
 
     private void OnEnable()
@@ -99,6 +106,7 @@ public class GameModePresentation : MonoBehaviour
 
     private void StateChanged(MocopiLocalGameLoopController.GameLoopState state)
     {
+        UpdateResultViewports(state == MocopiLocalGameLoopController.GameLoopState.Result);
         anchorUntil = Time.unscaledTime + 0.5f;
         foreach (var hud in playerHuds) { hud.feedbackUntil = 0; hud.completed = hud.failures = 0; }
         foreach (var button in readyButtons)
@@ -108,11 +116,14 @@ public class GameModePresentation : MonoBehaviour
         countdownLabel.gameObject.SetActive(state == MocopiLocalGameLoopController.GameLoopState.Countdown);
         resultLabel.gameObject.SetActive(state == MocopiLocalGameLoopController.GameLoopState.Result);
         messageLabel.gameObject.SetActive(state != MocopiLocalGameLoopController.GameLoopState.Result);
+        leaderboardPanel.SetState(state);
     }
 
     private void LateUpdate()
     {
         var state = controller.CurrentState;
+        if (wasEnteringName && !leaderboardPanel.IsEnteringName) anchorUntil = Time.unscaledTime + 0.5f;
+        wasEnteringName = leaderboardPanel.IsEnteringName;
         for (int i = 0; i < controller.ActivePlayerCount; i++)
         {
             var player = controller.Players[i];
@@ -124,15 +135,23 @@ public class GameModePresentation : MonoBehaviour
             if (head != null && state != MocopiLocalGameLoopController.GameLoopState.Playing && state != MocopiLocalGameLoopController.GameLoopState.Countdown)
             {
                 Vector3 forward = Vector3.ProjectOnPlane(rotation * Vector3.forward, Vector3.up).normalized;
-                position = head.position - forward * (controller.ActivePlayerCount == 1 ? 1.8f : 2.3f) + Vector3.up * 0.15f;
-                rotation = Quaternion.LookRotation(head.position - Vector3.up * 0.15f - position, Vector3.up);
+                // Keep the physical touch targets reachable; widen the camera framing in narrow windows.
+                float halfFov = Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f);
+                float distance = Mathf.Max(controller.ActivePlayerCount == 1 ? 1.8f : 2.3f,
+                    1.12f / (halfFov * Mathf.Max(0.2f, camera.aspect) * 0.86f) - 0.35f);
+                position = head.position - forward * distance;
+                // Reserve the upper band for instructions regardless of avatar height or viewport width.
+                position.y = TouchStationWorldHeight - (distance + 0.35f) * halfFov * 0.2f;
+                rotation = Quaternion.LookRotation(forward, Vector3.up);
             }
             float blend = 1 - Mathf.Exp(-10 * Time.unscaledDeltaTime);
             camera.transform.SetPositionAndRotation(Vector3.Lerp(camera.transform.position, position, blend), Quaternion.Slerp(camera.transform.rotation, rotation, blend));
         }
         foreach (var station in stations)
         {
-            bool active = station.playerIndex < controller.ActivePlayerCount;
+            // Keep physical retry/menu controls, but prevent stray touches during keyboard entry.
+            bool active = station.playerIndex < controller.ActivePlayerCount &&
+                !leaderboardPanel.IsEnteringName;
             station.root.gameObject.SetActive(active);
             if (!active || !station.root.gameObject.activeInHierarchy || Time.unscaledTime > anchorUntil) continue;
             var player = controller.Players[station.playerIndex];
@@ -160,6 +179,8 @@ public class GameModePresentation : MonoBehaviour
         stepsLabel.text = string.Join("     /     ", steps);
         footerLabel.text = state == MocopiLocalGameLoopController.GameLoopState.Playing
             ? "壁の穴にポーズを合わせよう  ·  ぶつかったブロックが 3 個以内ならクリア"
+            : state == MocopiLocalGameLoopController.GameLoopState.Result
+            ? (leaderboardPanel.IsEnteringName ? "ランクイン！ キーボードで名前を入力し「登録」 · スキップもできます" : "もう一度挑戦するか、アバター選択に戻れます")
             : "手で少し触れ続けると決定  ·  マウスでもクリックできます";
 
         if (state == MocopiLocalGameLoopController.GameLoopState.Ready)
@@ -191,6 +212,7 @@ public class GameModePresentation : MonoBehaviour
                 hud.card.SetActive(informationCard.activeSelf);
             }
             float width = hud.root.rect.width;
+            ConfigureHud(hud.root, state == MocopiLocalGameLoopController.GameLoopState.Result);
             hud.countdown.rectTransform.sizeDelta = new Vector2(Mathf.Max(200, width - 64), 260);
             hud.countdown.resizeTextMinSize = 48;
             var stepsRect = hud.steps.rectTransform;
@@ -227,6 +249,64 @@ public class GameModePresentation : MonoBehaviour
     {
         target.text = source.text;
         target.gameObject.SetActive(source.gameObject.activeSelf);
+    }
+
+    public static void ConfigureCanvas(CanvasScaler scaler)
+    {
+        if (scaler == null) return;
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 1; // Stable vertical spacing at Full HD, 720p and taller windows.
+    }
+
+    public static void ConfigureHud(RectTransform root, bool result)
+    {
+        float width = root.rect.width, height = root.rect.height;
+        float margin = Mathf.Min(28, width * 0.035f);
+        var header = (RectTransform)root.Find("Header");
+        header.anchorMin = new Vector2(0, 1); header.anchorMax = Vector2.one;
+        header.offsetMin = new Vector2(margin, -Mathf.Min(124, height * 0.19f));
+        header.offsetMax = new Vector2(-margin, -20);
+        var card = (RectTransform)root.Find("StateCard");
+        card.anchorMin = card.anchorMax = new Vector2(0.5f, 1);
+        card.pivot = new Vector2(0.5f, 1);
+        card.anchoredPosition = new Vector2(0, result ? -height * 0.48f : -Mathf.Min(144, height * 0.22f));
+        card.sizeDelta = new Vector2(Mathf.Min(800, width - margin * 2), Mathf.Min(result ? 240 : 176, height * 0.28f));
+        var footer = (RectTransform)root.Find("Footer");
+        footer.anchorMin = Vector2.zero; footer.anchorMax = Vector2.right;
+        footer.offsetMin = new Vector2(margin, 20);
+        footer.offsetMax = new Vector2(-margin, Mathf.Min(82, height * 0.14f));
+        var feedback = (RectTransform)root.Find("Feedback");
+        feedback.anchorMin = feedback.anchorMax = new Vector2(0.5f, 0.78f);
+        feedback.anchoredPosition = Vector2.zero;
+        feedback.sizeDelta = new Vector2(width - margin * 2, 80);
+    }
+
+    private void UpdateResultViewports(bool result)
+    {
+        if (result == resultViewportActive) return;
+        if (result)
+        {
+            resultCameraRects = new Rect[controller.Players.Count];
+            for (int i = 0; i < controller.Players.Count; i++)
+            {
+                var camera = controller.Players[i].PlayerCamera;
+                resultCameraRects[i] = camera.rect;
+                Rect rect = camera.rect; rect.x *= 0.63f; rect.width *= 0.63f;
+                camera.rect = rect;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < controller.Players.Count; i++)
+            {
+                Rect shrunk = resultCameraRects[i]; shrunk.x *= 0.63f; shrunk.width *= 0.63f;
+                var camera = controller.Players[i].PlayerCamera;
+                if (camera.rect == shrunk) camera.rect = resultCameraRects[i];
+            }
+        }
+        resultViewportActive = result;
     }
 
     public void ReadyPlayer1() { if (controller.DebugModeOn) controller.StartDebugRound(); else controller.MarkPlayer1Ready(); }

@@ -1,0 +1,4 @@
+Step 4
+System.Exception: Touch button clear of explanation
+  at GameUILayoutValidation.CheckAndCapture () [0x0037f] in C:\Users\brkmn\Documents\Pose-Challenge\mocopi\Assets\Editor\GameUILayoutValidation.cs:190 
+  at GameUILayoutValidation.Tick () [0x00236] in C:\Users\brkmn\Documents\Pose-Challenge\mocopi\Assets\Editor\GameUILayoutValidation.cs:74 

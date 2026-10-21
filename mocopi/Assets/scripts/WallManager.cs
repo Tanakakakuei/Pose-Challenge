@@ -15,6 +15,8 @@ public class WallManager : MonoBehaviour
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float destroyDistance = -10f;
     [SerializeField] private float spawnInterval = 3f;
+    [Tooltip("Floors that detached cubes can hit. Empty uses the authored Plane/Floor colliders.")]
+    [SerializeField] private Collider[] debrisFloors;
 
     [Header("Letters")]
     [SerializeField] private bool randomizeLetters = true;
@@ -66,6 +68,13 @@ public class WallManager : MonoBehaviour
 
     private void Awake()
     {
+        // A scene object can be assigned as the spawn template. Keep it out of
+        // gameplay so contacts cannot remove cells from every subsequent clone.
+        if (wallPrefab != null && wallPrefab.scene.IsValid())
+        {
+            wallPrefab.SetActive(false);
+        }
+
         firstLetter = NormalizeLetter(firstLetter);
         nextLetterIndex = firstLetter - 'A';
         score = wallCount;
@@ -148,6 +157,12 @@ public class WallManager : MonoBehaviour
         char wallLetter = nextLetter;
         GameObject newWall = Instantiate(wallPrefab, spawnPoint.position, spawnPoint.rotation);
         PlayerArenaLayers.Inherit(newWall, gameObject);
+        var hits = newWall.AddComponent<WallHitTracker>();
+        hits.Owner = this;
+        hits.Velocity = Vector3.back * moveSpeed;
+        // Scene templates are inactive. Run Awake before applying the mask,
+        // since WallMaskData initializes its grid there.
+        newWall.SetActive(true);
         ApplyWallMask(newWall, wallLetter);
         activeWalls.Add(newWall);
         spawnedWallCount++;
@@ -232,6 +247,7 @@ public class WallManager : MonoBehaviour
             if (wall != null)
             {
                 wall.transform.position += Vector3.back * moveSpeed * Time.deltaTime;
+                wall.GetComponent<WallHitTracker>().Velocity = Vector3.back * moveSpeed;
             }
         }
     }
@@ -250,7 +266,6 @@ public class WallManager : MonoBehaviour
             if (wall.transform.position.z < destroyDistance)
             {
                 RecordPassedWall(wall);
-                ClearDetachedCubes(wall);
                 Destroy(wall);
                 activeWalls.RemoveAt(i);
                 TryShowResult();
@@ -283,6 +298,8 @@ public class WallManager : MonoBehaviour
 
     private int CountHitCubes(GameObject wall)
     {
+        var hits = wall.GetComponent<WallHitTracker>();
+        if (hits != null) return hits.HitCount;
         int count = 0;
         WallCube[] cubes = wall.GetComponentsInChildren<WallCube>(true);
 
@@ -361,6 +378,7 @@ public class WallManager : MonoBehaviour
 
     public void BeginGame()
     {
+        WallDebrisCollision.ConfigureScene(gameObject.scene, debrisFloors);
         Time.timeScale = 1f;
         if (isResultShown || completedWallCount >= wallCount)
         {
@@ -456,6 +474,9 @@ public class WallManager : MonoBehaviour
         }
 
         activeWalls.Clear();
+        // Includes debris whose original wall has already passed and been destroyed.
+        foreach (var cube in FindObjectsByType<WallCube>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (cube.IsHit && cube.Owner == this) Destroy(cube.gameObject);
     }
 
     private void ClearDetachedCubes(GameObject wall)

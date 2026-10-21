@@ -64,6 +64,8 @@ public class AvatarSelectionTapestryPanel : MonoBehaviour
 
     public void Choose()
     {
+        // TouchableUIPanel plays before invoking Choose; a direct UI Button needs its own cue.
+        if (GetComponent<TouchableUIPanel>() == null) UIActionAudio.Play(UIActionSound.Confirm);
         if (localGameLoopController == null)
         {
             localGameLoopController = FindAnyObjectByType<MocopiLocalGameLoopController>();

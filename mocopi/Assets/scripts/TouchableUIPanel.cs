@@ -53,6 +53,7 @@ public class TouchableUIPanel : MonoBehaviour
     [SerializeField] private bool acceptMocopiRig = true;
 
     [Header("Events")]
+    [SerializeField] private UIActionSound clickSound = UIActionSound.Automatic;
     [SerializeField] private UnityEvent onTouchEnter = new UnityEvent();
     [SerializeField] private UnityEvent onTouchExit = new UnityEvent();
     [SerializeField] private UnityEvent onTouchClick = new UnityEvent();
@@ -174,7 +175,29 @@ public class TouchableUIPanel : MonoBehaviour
     {
         if (!isActiveAndEnabled || activated || Time.unscaledTime - enabledAt < activationDelay) return;
         activated = true;
+        UIActionAudio.Play(ResolvedClickSound);
         onTouchClick.Invoke();
+    }
+
+    public void SetClickSound(UIActionSound sound) => clickSound = sound;
+
+    public UIActionSound ResolvedClickSound
+    {
+        get
+        {
+            if (clickSound != UIActionSound.Automatic) return clickSound;
+            // Legacy scene/prefab bindings work without rewriting the user's open scene.
+            int calls = onTouchClick.GetPersistentEventCount();
+            for (int i = 0; i < calls; i++)
+            {
+                string method = onTouchClick.GetPersistentMethodName(i);
+                if (method == "ReturnToAvatarSelection" || method.StartsWith("Cancel") ||
+                    method.StartsWith("Back") || method.StartsWith("ReturnTo")) return UIActionSound.Cancel;
+            }
+            if (label.Contains("戻る") || label.Contains("選び直") || label.Contains("キャンセル"))
+                return UIActionSound.Cancel;
+            return calls > 0 ? UIActionSound.Confirm : UIActionSound.None;
+        }
     }
 
     private void UpdatePointer()
@@ -191,6 +214,7 @@ public class TouchableUIPanel : MonoBehaviour
         position = Input.mousePosition;
         clicked = Input.GetMouseButtonDown(0);
 #endif
+        if (ResultLeaderboardPanel.BlocksWorldPointer(position)) return;
         foreach (var camera in Camera.allCameras)
         {
             if (!camera.pixelRect.Contains(position) || (camera.cullingMask & (1 << gameObject.layer)) == 0) continue;

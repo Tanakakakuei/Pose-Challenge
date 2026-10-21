@@ -145,6 +145,7 @@ public class WallMaskData : MonoBehaviour
             {
                 int y = wallHeight - 1 - row;
                 int x = column;
+                WallHoleOutline.Apply(cube, mask, y, x);
 
                 if (y >= 0 && y < wallHeight && x >= 0 && x < wallWidth)
                 {
@@ -169,10 +170,12 @@ public class WallMaskData : MonoBehaviour
             {
                 int y = wallHeight - 1 - (i / wallWidth);
                 int x = i % wallWidth;
+                WallHoleOutline.Apply(cubes[i], mask, y, x);
                 cubes[i].gameObject.SetActive(mask[y, x]);
             }
             else
             {
+                WallHoleOutline.Clear(cubes[i]);
                 cubes[i].gameObject.SetActive(false);
             }
         }

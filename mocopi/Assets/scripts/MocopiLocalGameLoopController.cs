@@ -478,6 +478,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
 
     public const int CountdownSeconds = 5;
     private const float StartDisplaySeconds = 0.75f;
+    public const float ResultDelaySeconds = 0.5f;
     private TouchableUIPanel[] countdownTouchPanels;
     private Font countdownFallbackFont;
 
@@ -492,6 +493,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
     private GameLoopState currentState;
     private Coroutine countdownRoutine;
     private int finishedPlayerCount;
+    private double resultDisplayAt = -1;
 
     public GameLoopState CurrentState => currentState;
     public GameMode CurrentMode => gameMode;
@@ -526,6 +528,12 @@ public class MocopiLocalGameLoopController : MonoBehaviour
 
     private void Update()
     {
+        if (currentState == GameLoopState.Playing && resultDisplayAt >= 0 &&
+            Time.realtimeSinceStartupAsDouble >= resultDisplayAt)
+        {
+            ChangeState(GameLoopState.Result);
+        }
+
         if (debugColliderSettingsPending)
         {
             debugColliderSettingsPending = false;
@@ -707,6 +715,8 @@ public class MocopiLocalGameLoopController : MonoBehaviour
 
     private void ChangeState(GameLoopState nextState)
     {
+        // Leaving the round also cancels any pending result transition.
+        resultDisplayAt = -1;
         StopCountdown();
         foreach (var player in players) player.ClearReadyVisuals();
         currentState = nextState;
@@ -1009,7 +1019,8 @@ public class MocopiLocalGameLoopController : MonoBehaviour
 
         if (finishedPlayerCount >= GetActivePlayerCount())
         {
-            ChangeState(GameLoopState.Result);
+            StopAllRounds();
+            resultDisplayAt = Time.realtimeSinceStartupAsDouble + ResultDelaySeconds;
         }
     }
 

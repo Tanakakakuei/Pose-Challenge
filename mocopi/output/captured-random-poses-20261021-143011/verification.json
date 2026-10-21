@@ -1,0 +1,15 @@
+{
+  "count": 30,
+  "distinct": 30,
+  "dimensions": [
+    30,
+    60
+  ],
+  "marginMeters": 0.05000000074505806,
+  "minHorizontalOffset": -2.3157031536102295,
+  "maxHorizontalOffset": 1.7715263366699219,
+  "savedCopiesMatch": true,
+  "expansionContainsOriginal": true,
+  "topAndSidesClear": true,
+  "allPoseImagesRendered": true
+}

@@ -32,6 +32,7 @@ public static class GameModeValidation
     private static int phase, round;
     private static double phaseAt, startedAt;
     private static bool capturedPlay;
+    private static double allWallsFinishedAt;
     private static readonly System.Collections.Generic.HashSet<WallCube> authoredCubes = new System.Collections.Generic.HashSet<WallCube>();
     private static TouchableUIPanel legacyCountdown;
     private static UnityEngine.UI.Text standardCountdown;
@@ -129,8 +130,16 @@ public static class GameModeValidation
                         Debug.Log("GAME_LEGACY_COUNTDOWN_PASSED: original CountDown_UI prefab without a Text reference.");
                     }
                     capturedPlay = false;
+                    allWallsFinishedAt = -1;
                     Next(3); break;
                 case 3:
+                    if (loop.Players.Take(loop.ActivePlayerCount).All(p => p.WallManager.GetCompletedWallCount() == 10))
+                    {
+                        if (allWallsFinishedAt < 0) allWallsFinishedAt = UnityEngine.Time.realtimeSinceStartupAsDouble;
+                        if (state == MocopiLocalGameLoopController.GameLoopState.Result)
+                            Assert(UnityEngine.Time.realtimeSinceStartupAsDouble - allWallsFinishedAt >= 0.45,
+                                "Final wall remains visible for roughly half a real second before results");
+                    }
                     foreach (var cube in SpawnedCubes())
                         if (cube.OriginalWall != null)
                             Assert(PlayerArenaLayers.IsArena(cube.gameObject.layer) && cube.gameObject.layer == cube.OriginalWall.layer, "Spawned walls and detached cubes retain their arena");
@@ -146,8 +155,18 @@ public static class GameModeValidation
                     Next(4); break;
                 case 4:
                     if (elapsed < 0.8) return;
+                    var ranking = Object.FindAnyObjectByType<ResultLeaderboardPanel>();
+                    // Existing flow validation never writes sample names into the user's local ranking.
+                    while (ranking != null && ranking.IsEnteringName)
+                        ranking.GetType().GetMethod("Skip", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(ranking, null);
+                    if (ranking != null) { Next(10); break; }
+                    goto case 10;
+                case 10:
+                    if (elapsed < 0.1) return;
                     Capture(round == 0 ? "05-result" : "result-" + round);
-                    Assert(!SpawnedCubes().Any(), "No spawned cubes left after result");
+                    // Detached hit cubes now keep their own lifetime after a wall passes.
+                    Assert(SpawnedCubes().All(cube => cube.IsHit && cube.transform.parent == null),
+                        "Only independent hit debris may remain after result");
                     if (round == 0)
                     {
                         Time.timeScale = 0;

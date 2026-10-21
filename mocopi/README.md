@@ -80,11 +80,19 @@ Please ensure that the smartphone running the mocopi app and your Unity applicat
 
 ## Sample Projects
 
+### ゲーム結果とランキング
+
+最後の壁の判定が終わると、0.5秒待って結果画面に切り替わります。2人プレイでは両者の終了後に待ち時間が始まります。
+
+結果画面の右側に、このPC内の上位10件を表示します。得点が高い順、同点なら接触ブロック数が少ない順です。ランクインした場合だけキーボードで名前（12文字まで）を入力し、「登録」をクリックしてください。日本語入力に対応し、「登録しない」でスキップできます。1人・協力・対戦は別ランキングで、協力はチーム名、対戦は各プレイヤーの名前を登録します。登録後の「もう一度」「選択に戻る」はマウスでも従来のタッチ操作でも選べます。
+
 ### ポーズ型の撮影・保存
 
 `Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/CaptureMaskDataMode.unity` を開いて Play すると、mocopi のポーズを壁の穴として撮影できます。**Space** で撮影（3秒後）、**S** で保存、**R** で撮り直し、**P** で壁を再配置します。
 
 無地の壁の右隣で撮影結果を確認し、既存の `WallMaskData` と互換のある JSON として保存できます。詳しくは [CaptureMaskDataMode の操作手順](Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/CaptureMaskDataMode.md) を参照してください。
+
+Unity の編集モードで **Tools > mocopi > Capture 30 Random Poses** を実行すると、CaptureMode のモデルのコピーにランダムなポーズと横位置を設定し、30種類を撮影・保存できます。撮影後に穴の余白を外側へ5cm広げます。保存先は通常の型ライブラリで、確認用画像・JSONのコピー・撮影記録は `output/captured-random-poses-*` に作成されます。シーン内のモデルや壁の設定は変更しません。
 
 This repository includes sample scenes demonstrating basic usage:
 

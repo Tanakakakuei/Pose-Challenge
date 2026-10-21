@@ -485,8 +485,8 @@ MonoBehaviour:
   mocopiAvatar: {fileID: 5333516995609130451}
   captureCamera: {fileID: 699866031}
   connectionTimeout: 2
-  rows: 35
-  columns: 40
+  rows: 30
+  columns: 60
   cellSize: 0.1
   forwardDistance: 3
   wallGap: 0.3

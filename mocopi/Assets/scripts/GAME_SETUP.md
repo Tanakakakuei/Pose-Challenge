@@ -162,3 +162,13 @@ The player uses mocopi to pose like an uppercase alphabet cut-out. A wall made f
 2. Confirm A-shaped holes appear and move toward the player.
 3. Confirm contact cubes fall and the score subtracts only when a wall exceeds the safe hit threshold.
 4. After the flow works, raise speed and tune the safe hit threshold.
+
+## Detached wall cubes and UI feedback (2026-10-20)
+
+- A contacted cell keeps its arena render layer, detaches, enables gravity and free rotation, and inherits the wall velocity with a small outward nudge. A solid child collider replaces its original trigger. Moderate friction, low restitution, damping and continuous collision detection produce a short tumble that settles on the floor.
+- Each WallCube has its own Life Time (7 seconds) and Life Time Variation (1.5 seconds). Expiry uses real time, including a paused result screen. Ordinary wall removal does not remove debris; retry/menu cleanup does.
+- Player1Debris / Player2Debris occupy physics layers 10 / 11. Debris colliders exclude all contacts at override priority 10. Only the owning arena's floor and player colliders explicitly allow them at priority 20. Cube-to-cube, wall, UI and cross-arena contacts are rejected. The existing Plane floors are discovered at round start; a custom stage can supply WallManager's Debris Floors explicitly.
+- WallHitTracker records first contacts independently of object lifetime, so an expired cube still counts in the wall result.
+- TouchableUIPanel plays once after its hold/click is accepted. Automatic feedback resolves existing persistent actions; return/cancel actions use Cancel. Runtime-only bindings can set Click Sound explicitly. UIActionAudio uses a shared 2D source at volume 0.65, outside menu hierarchies, with a 60 ms overlap guard. Sound provenance and normalization values are in Assets/Resources/Audio/UI/SOURCES.md.
+- Japanese operator guides: output/pdf/GameMode_Guide_JA.pdf and output/pdf/CaptureMode_Guide_JA.pdf. Regenerate with Docs/build_manuals.py (ReportLab; Windows BIZ UD Gothic fonts).
+- Run DebrisAndUIValidation.Run with Unity's -executeMethod against a disposable project copy to check floor/player physics, forbidden contacts, independent expiry, scoring, cleanup and menu sound bindings. GameModeValidation.PlayTest also covers the complete solo/co-op/versus flow.

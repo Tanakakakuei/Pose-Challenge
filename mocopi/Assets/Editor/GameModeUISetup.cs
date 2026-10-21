@@ -122,8 +122,7 @@ public static class GameModeUISetup
         var canvas = canvasObject.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = 50;
         var scaler = canvasObject.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1600, 900); scaler.matchWidthOrHeight = 0.5f;
+        GameModePresentation.ConfigureCanvas(scaler);
         var hud = canvasObject.transform;
         var header = Rect("Header", hud, new Vector2(0, 1), new Vector2(1, 1), new Vector2(32, -122), new Vector2(-32, -28));
         Fill(header, new Color(0.025f, 0.065f, 0.105f, 0.96f));
@@ -185,6 +184,8 @@ public static class GameModeUISetup
         view.titleLabel.text = "アバターを確認";
         view.messageLabel.text = "ポーズを合わせて、壁をくぐろう\n準備ができたら次へ";
         view.scoreLabel.text = "POSE / PASS";
+        Canvas.ForceUpdateCanvases();
+        GameModePresentation.ConfigureHud((RectTransform)hud, false);
         view.resultLabel.gameObject.SetActive(false); view.countdownLabel.gameObject.SetActive(false);
         foreach (var created in scene.GetRootGameObjects().Except(originalRoots))
             Undo.RegisterCreatedObjectUndo(created, "Improve GameMode UI and loop");
@@ -197,6 +198,7 @@ public static class GameModeUISetup
         var go = new GameObject(label); go.transform.SetParent(parent, false); go.transform.localPosition = new Vector3(Mathf.Sign(x) * 0.62f, 0, 0);
         var panel = go.AddComponent<TouchableUIPanel>();
         panel.SetLabel(label);
+        panel.SetClickSound(action.Method.Name == "ReturnToAvatarSelection" ? UIActionSound.Cancel : UIActionSound.Confirm);
         panel.ConfigureVisuals(new Vector2(0.72f, 0.26f), 0.16f, 700, null, 44,
             new Color(0.035f, 0.12f, 0.18f), new Color(0.95f, 0.98f, 1), new Color(0.43f, 0.95f, 0.83f),
             true, 1, 1, true, new Color(0.4f, 0.9f, 0.84f), 1, 1, 2, Color.clear, 0, 0, 0);
