@@ -24,7 +24,7 @@ public class WallManager : MonoBehaviour
 
     [Header("Saved pose library")]
     [SerializeField] private bool useSavedMasks;
-    [Tooltip("Empty uses the CaptureMode save folder (Application.persistentDataPath).")]
+    [Tooltip("Empty uses the bundled PoseMasks plus the CaptureMode save folder. A specified directory replaces both.")]
     [SerializeField] private string savedMaskDirectory;
     private List<SavedMaskLibrary.Entry> roundMasks = new List<SavedMaskLibrary.Entry>();
     private bool roundPrepared;
@@ -451,9 +451,11 @@ public class WallManager : MonoBehaviour
                 columns = Mathf.Max(columns, column + 1);
             }
         }
-        string directory = string.IsNullOrWhiteSpace(savedMaskDirectory)
-            ? Application.persistentDataPath : savedMaskDirectory;
-        var library = SavedMaskLibrary.Load(directory, rows, columns);
+        bool useDefaultLibrary = string.IsNullOrWhiteSpace(savedMaskDirectory);
+        string directory = useDefaultLibrary
+            ? SavedMaskLibrary.BundledDirectory + " + " + Application.persistentDataPath : savedMaskDirectory;
+        var library = useDefaultLibrary ? SavedMaskLibrary.LoadDefault(rows, columns)
+            : SavedMaskLibrary.Load(directory, rows, columns);
         roundMasks = SavedMaskLibrary.SelectRound(library, wallCount, new System.Random());
         SavedMaskStatus = library.Count == 0
             ? $"保存済みの {rows}×{columns} の型がないため、従来の出題を使用します。"

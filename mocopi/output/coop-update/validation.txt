@@ -1,0 +1,4 @@
+Saved scene settings passed.
+PASS: Suguru, settings, shared camera, floor, HUD, ten-wall co-op round, result, versus and single restoration.
+Saved scene settings passed: Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/GameMode.unity
+PASS: Suguru, settings, shared camera, floor, HUD, ten-wall co-op round, result, versus and single restoration.

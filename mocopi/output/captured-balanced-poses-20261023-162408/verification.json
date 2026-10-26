@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "total": 60,
+  "positionCounts": {
+    "right": 20,
+    "center": 20,
+    "left": 20
+  },
+  "uniqueAfterTranslation": 60,
+  "crouching": 12,
+  "smallJumps": 6,
+  "bundleMatchesCaptures": true,
+  "clippedAtTopOrSides": false
+}

@@ -295,7 +295,7 @@ public class CaptureMaskDataMode : MonoBehaviour
 
     private void RefreshSavedCount()
     {
-        savedMaskCount = SavedMaskLibrary.Load(Application.persistentDataPath, rows, columns).Count;
+        savedMaskCount = SavedMaskLibrary.LoadDefault(rows, columns).Count;
     }
 
     public void RetryCapture()

@@ -36,6 +36,12 @@ public static class WallDebrisCollision
 
     public static void ConfigureScene(Scene scene, Collider[] explicitFloors)
     {
+        bool sharedFloor = false;
+        foreach (var root in scene.GetRootGameObjects())
+        {
+            var loop = root.GetComponentInChildren<MocopiLocalGameLoopController>(true);
+            if (loop != null && loop.UsesSharedCoopView) sharedFloor = true;
+        }
         foreach (var root in scene.GetRootGameObjects())
         foreach (var collider in root.GetComponentsInChildren<Collider>(true))
         {
@@ -46,6 +52,11 @@ public static class WallDebrisCollision
                 ? System.Array.IndexOf(explicitFloors, collider) >= 0
                 : collider.name == "Plane" || collider.name == "Floor");
             if (player || floor) AllowContact(collider);
+            if (floor && sharedFloor)
+            {
+                collider.includeLayers |= DebrisMask;
+                collider.excludeLayers &= ~DebrisMask;
+            }
         }
     }
 }

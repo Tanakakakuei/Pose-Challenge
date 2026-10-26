@@ -1,0 +1,10 @@
+PASS: valid Humanoid; persistent material remaps; all six supplied textures assigned; shader has no import errors.
+Mt_clothes: FukuTEX -> Assets/Models/suguru/Materials/Mt_clothes.mat
+Mt_Face: FaceTex -> Assets/Models/suguru/Materials/Mt_Face.mat
+Mt_others: othersTEX -> Assets/Models/suguru/Materials/Mt_others.mat
+Mt_Hair: Hair_TEX2 -> Assets/Models/suguru/Materials/Mt_Hair.mat
+Mt_clip: solid metal -> Assets/Models/suguru/Materials/Mt_clip.mat
+Mt_nameplate: nameplate -> Assets/Models/suguru/Materials/Mt_nameplate.mat
+Mt_string: string -> Assets/Models/suguru/Materials/Mt_string.mat
+PASS: Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/GameMode.unity: 2P Suguru, textures, humanoid, receiver, body colliders and ready pose references.
+PASS: Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/GameMode-Halloween.unity: 2P Suguru, textures, humanoid, receiver, body colliders and ready pose references.

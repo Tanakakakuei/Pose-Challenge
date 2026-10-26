@@ -124,8 +124,13 @@ public class GameModePresentation : MonoBehaviour
         var state = controller.CurrentState;
         if (wasEnteringName && !leaderboardPanel.IsEnteringName) anchorUntil = Time.unscaledTime + 0.5f;
         wasEnteringName = leaderboardPanel.IsEnteringName;
-        for (int i = 0; i < controller.ActivePlayerCount; i++)
+        for (int i = 0; i < controller.ViewportCount; i++)
         {
+            if (controller.UsesSharedCoopView)
+            {
+                if (i == 0) UpdateSharedCamera();
+                continue;
+            }
             var player = controller.Players[i];
             var animator = player.ReadyPoseAnimator;
             var head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
@@ -137,7 +142,7 @@ public class GameModePresentation : MonoBehaviour
                 Vector3 forward = Vector3.ProjectOnPlane(rotation * Vector3.forward, Vector3.up).normalized;
                 // Keep the physical touch targets reachable; widen the camera framing in narrow windows.
                 float halfFov = Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f);
-                float distance = Mathf.Max(controller.ActivePlayerCount == 1 ? 1.8f : 2.3f,
+                float distance = Mathf.Max(controller.ViewportCount == 1 ? 1.8f : 2.3f,
                     1.12f / (halfFov * Mathf.Max(0.2f, camera.aspect) * 0.86f) - 0.35f);
                 position = head.position - forward * distance;
                 // Reserve the upper band for instructions regardless of avatar height or viewport width.
@@ -150,10 +155,10 @@ public class GameModePresentation : MonoBehaviour
         foreach (var station in stations)
         {
             // Keep physical retry/menu controls, but prevent stray touches during keyboard entry.
-            bool active = station.playerIndex < controller.ActivePlayerCount &&
+            bool active = station.playerIndex < (controller.UsesSharedCoopView ? controller.ActivePlayerCount : controller.ViewportCount) &&
                 !leaderboardPanel.IsEnteringName;
             station.root.gameObject.SetActive(active);
-            if (!active || !station.root.gameObject.activeInHierarchy || Time.unscaledTime > anchorUntil) continue;
+            if (!active || !station.root.gameObject.activeInHierarchy || (Time.unscaledTime > anchorUntil && !controller.UsesSharedCoopView)) continue;
             var player = controller.Players[station.playerIndex];
             var camera = player.PlayerCamera;
             if (camera == null) continue;
@@ -170,6 +175,8 @@ public class GameModePresentation : MonoBehaviour
 
         string mode = controller.CurrentMode == MocopiLocalGameLoopController.GameMode.Single ? "SOLO" :
             controller.CurrentMode == MocopiLocalGameLoopController.GameMode.Coop ? "CO-OP" : "VERSUS";
+        if (state <= MocopiLocalGameLoopController.GameLoopState.GameModeSelection)
+            mode = controller.ActivePlayerCount == 1 ? "SOLO" : "2P / SELECT MODE";
         modeLabel.text = mode + (controller.DebugModeOn ? "   /   MOUSE MODE" : "   /   MOCOPI");
         int step = state <= MocopiLocalGameLoopController.GameLoopState.GameModeSelection ? 0 :
             state <= MocopiLocalGameLoopController.GameLoopState.Countdown ? 1 :
@@ -178,7 +185,7 @@ public class GameModePresentation : MonoBehaviour
         steps[step] = "<color=#6EF2DA>" + steps[step] + "</color>";
         stepsLabel.text = string.Join("     /     ", steps);
         footerLabel.text = state == MocopiLocalGameLoopController.GameLoopState.Playing
-            ? "壁の穴にポーズを合わせよう  ·  ぶつかったブロックが 3 個以内ならクリア"
+            ? $"壁の穴にポーズを合わせよう  ·  ぶつかったブロックが {controller.Players[0].WallManager.GetSafeHitThreshold()} 個以内ならクリア"
             : state == MocopiLocalGameLoopController.GameLoopState.Result
             ? (leaderboardPanel.IsEnteringName ? "ランクイン！ キーボードで名前を入力し「登録」 · スキップもできます" : "もう一度挑戦するか、アバター選択に戻れます")
             : "手で少し触れ続けると決定  ·  マウスでもクリックできます";
@@ -195,13 +202,14 @@ public class GameModePresentation : MonoBehaviour
 
     private void UpdatePlayerHuds(MocopiLocalGameLoopController.GameLoopState state)
     {
-        bool split = controller.ActivePlayerCount > 1;
+        bool shared = controller.UsesSharedCoopView;
+        bool split = controller.UsesSplitScreenView;
         bool playing = state == MocopiLocalGameLoopController.GameLoopState.Playing;
         for (int i = 0; i < playerHuds.Length; i++)
         {
             var hud = playerHuds[i];
-            hud.root.gameObject.SetActive(i < controller.ActivePlayerCount);
-            if (i >= controller.ActivePlayerCount) continue;
+            hud.root.gameObject.SetActive(i < controller.ViewportCount);
+            if (i >= controller.ViewportCount) continue;
             Rect viewport = controller.Players[i].PlayerCamera.rect;
             hud.root.anchorMin = viewport.min; hud.root.anchorMax = viewport.max;
             hud.root.offsetMin = hud.root.offsetMax = Vector2.zero;
@@ -229,6 +237,16 @@ public class GameModePresentation : MonoBehaviour
             int completed = wall.GetCompletedWallCount(), failures = wall.GetFailedWallCount(), total = wall.GetWallCount();
             hud.score.text = playing || state == MocopiLocalGameLoopController.GameLoopState.Result
                 ? $"{i + 1}P   {wall.GetScore():00} / {total:00}  <size=16>POINTS</size>" : $"{i + 1}P  /  POSE PASS";
+            if (shared)
+            {
+                var other = controller.Players[1].WallManager;
+                hud.score.text = playing || state == MocopiLocalGameLoopController.GameLoopState.Result
+                    ? $"1P {wall.GetScore():00}/{total:00}   2P {other.GetScore():00}/{other.GetWallCount():00}"
+                    : "1P + 2P  /  CO-OP";
+                completed += other.GetCompletedWallCount();
+                failures += other.GetFailedWallCount();
+                total += other.GetWallCount();
+            }
             hud.progress.fillAmount = total > 0 ? (float)completed / total : 0;
             if (playing && completed > hud.completed)
             {
@@ -249,6 +267,19 @@ public class GameModePresentation : MonoBehaviour
     {
         target.text = source.text;
         target.gameObject.SetActive(source.gameObject.activeSelf);
+    }
+
+    private void UpdateSharedCamera()
+    {
+        var camera = controller.Players[0].PlayerCamera;
+        var arenas = controller.GetComponent<PlayerArenaIsolation>();
+        Vector3 center = arenas.SharedCenter;
+        // Frame both six metre lanes, their full height and the common floor ring.
+        float halfFov = Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f);
+        float distance = Mathf.Max(12.5f, 6.8f / (halfFov * Mathf.Max(0.2f, camera.aspect)));
+        Vector3 target = center + new Vector3(0, 0.9f, 1f);
+        camera.transform.SetPositionAndRotation(target + new Vector3(0, distance * 0.28f, -distance),
+            Quaternion.LookRotation(new Vector3(0, -0.28f, 1), Vector3.up));
     }
 
     public static void ConfigureCanvas(CanvasScaler scaler)
@@ -311,7 +342,6 @@ public class GameModePresentation : MonoBehaviour
 
     public void ReadyPlayer1() { if (controller.DebugModeOn) controller.StartDebugRound(); else controller.MarkPlayer1Ready(); }
     public void ReadyPlayer2() { if (controller.DebugModeOn) controller.StartDebugRound(); else controller.MarkPlayer2Ready(); }
-    public void TogglePlayers() => controller.SetGameMode(controller.ActivePlayerCount == 1
-        ? MocopiLocalGameLoopController.GameMode.Coop : MocopiLocalGameLoopController.GameMode.Single);
+    public void TogglePlayers() => controller.SetPlayerCount(controller.ActivePlayerCount == 1 ? 2 : 1);
     public void TryMouseMode() => controller.SetDebugMode(true);
 }

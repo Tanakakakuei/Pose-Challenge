@@ -1,0 +1,2 @@
+Mode switching regression: Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/GameMode-Halloween.unity
+PASS: 1P -> pending 2P -> mode selection -> co-op -> select again -> versus -> select again -> 1P ready; real button events, cameras, camera poses, HUD and arenas.

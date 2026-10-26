@@ -24,6 +24,28 @@ public sealed class ArenaMusicVisuals : MonoBehaviour
     private float travelled;
     private readonly List<(MeshFilter filter, Mesh original, Mesh replacement)> replacedPads = new List<(MeshFilter, Mesh, Mesh)>();
     public float Travelled => travelled;
+    private bool sharedFloor;
+    private Vector3 sharedFloorCenter;
+    private float sharedFloorDiameter;
+
+    public void SetSharedFloor(bool shared, Vector3 center, float diameter)
+    {
+        sharedFloor = shared;
+        sharedFloorCenter = center;
+        sharedFloorDiameter = diameter;
+        UpdateFloorLayout();
+    }
+
+    private void UpdateFloorLayout()
+    {
+        if (floorRenderer == null || haloRenderer == null) return;
+        Vector3 center = sharedFloor ? transform.InverseTransformPoint(sharedFloorCenter) : Vector3.zero;
+        center.y = 0;
+        float scale = sharedFloor ? sharedFloorDiameter / circleDiameter : 1;
+        floorRenderer.transform.localPosition = center;
+        haloRenderer.transform.localPosition = center + Vector3.up * 0.045f;
+        floorRenderer.transform.localScale = haloRenderer.transform.localScale = new Vector3(scale, 1, scale);
+    }
 
     private void Awake()
     {
@@ -43,6 +65,7 @@ public sealed class ArenaMusicVisuals : MonoBehaviour
         haloMaterial = new Material(haloShader) { name = "Soft electric halo" };
         haloRenderer = CreateRenderer("Electric Halo", haloMesh, haloMaterial);
         haloRenderer.transform.localPosition = Vector3.up * 0.045f;
+        UpdateFloorLayout();
         ApplyProperties();
     }
 

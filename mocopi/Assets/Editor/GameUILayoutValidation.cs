@@ -163,10 +163,10 @@ public static class GameUILayoutValidation
         File.AppendAllText(Output + "/dimensions.txt", $"{step}: requested {size}; Screen {Screen.width}x{Screen.height}; camera {loop.Players[0].PlayerCamera.pixelRect}\n");
         var canvas = view.modeLabel.canvas;
         bool result = loop.CurrentState == MocopiLocalGameLoopController.GameLoopState.Result;
-        for (int i = 0; i < loop.ActivePlayerCount; i++)
+        for (int i = 0; i < loop.ViewportCount; i++)
         {
             var camera = loop.Players[i].PlayerCamera;
-            var root = (RectTransform)canvas.transform.Find((i + 1) + "P_HUD");
+            var root = (RectTransform)canvas.transform.Find((loop.UsesSharedCoopView ? 1 : i + 1) + "P_HUD");
             Assert(root.anchorMin == camera.rect.min && root.anchorMax == camera.rect.max, "HUD viewport matches camera");
             Rect available = camera.pixelRect;
             foreach (string name in new[] { "Header", "StateCard", "Footer" })

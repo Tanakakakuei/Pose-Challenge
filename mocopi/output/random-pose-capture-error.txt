@@ -1,0 +1,4 @@
+System.IO.IOException: The process cannot access the file 'C:\Users\PG\Documents\Pose-Challenge\mocopi\Temp\BalancedPoseCapture.request' because it is being used by another process.
+  at System.IO.FileSystem.DeleteFile (System.String fullPath) [0x0001a] in <f713e1c3c5f545ce9b1df47230f4f853>:0 
+  at System.IO.File.Delete (System.String path) [0x00014] in <f713e1c3c5f545ce9b1df47230f4f853>:0 
+  at RandomPoseCaptureBatch.Tick () [0x0002a] in C:\Users\PG\Documents\Pose-Challenge\mocopi\Assets\Editor\RandomPoseCaptureBatch.cs:39 

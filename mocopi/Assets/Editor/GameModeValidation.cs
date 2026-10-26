@@ -370,7 +370,7 @@ public static class GameModeValidation
         var canvas = view.modeLabel.canvas;
         for (int i = 0; i < 2; i++)
         {
-            bool active = i < count;
+            bool active = i < count && (!loop.UsesSharedCoopView || i == 0);
             var hud = (RectTransform)canvas.transform.Find($"{i + 1}P_HUD");
             Assert(arenas.environments[i].activeInHierarchy == active, "Only active players have visible environments");
             Assert(hud.gameObject.activeInHierarchy == active, "Only active players have visible HUDs");
@@ -395,6 +395,7 @@ public static class GameModeValidation
         foreach (var player in loop.Players.Take(loop.ActivePlayerCount))
         {
             var camera = player.PlayerCamera;
+            if (!camera.enabled) continue;
             var target = camera.targetTexture;
             var rect = camera.rect;
             int width = Mathf.RoundToInt(1600 * rect.width), height = Mathf.RoundToInt(900 * rect.height);

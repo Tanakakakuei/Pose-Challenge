@@ -1,0 +1,5 @@
+BALANCED_POSE_LIBRARY_VALIDATION_PASSED
+GameMode/1P_WallManager: 30x60; ten unique walls; all cells match.
+GameMode/2P_WallManager: existing 52x42 template; bundled 30x60 poses excluded.
+GameMode-Halloween/1P_WallManager: 30x60; ten unique walls; all cells match.
+GameMode-Halloween/2P_WallManager: existing 52x42 template; bundled 30x60 poses excluded.

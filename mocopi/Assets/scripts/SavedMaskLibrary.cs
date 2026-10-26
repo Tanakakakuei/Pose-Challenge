@@ -6,6 +6,27 @@ using UnityEngine;
 /// <summary>Loads compatible masks once per round and draws shuffled bags without replacement.</summary>
 public static class SavedMaskLibrary
 {
+    public static string BundledDirectory => Path.Combine(Application.streamingAssetsPath, "PoseMasks");
+
+    /// <summary>Project poses travel with builds; locally captured poses are added without duplicate shapes.</summary>
+    public static List<Entry> LoadDefault(int rows, int columns)
+    {
+        var entries = Load(BundledDirectory, rows, columns);
+        var shapes = new HashSet<string>();
+        foreach (var entry in entries) shapes.Add(ShapeKey(entry.Mask));
+        foreach (var entry in Load(Application.persistentDataPath, rows, columns))
+            if (shapes.Add(ShapeKey(entry.Mask))) entries.Add(entry);
+        return entries;
+    }
+
+    private static string ShapeKey(bool[,] mask)
+    {
+        var key = new char[mask.Length];
+        int index = 0;
+        foreach (bool solid in mask) key[index++] = solid ? '1' : '0';
+        return new string(key);
+    }
+
     public sealed class Entry
     {
         public string Path { get; }

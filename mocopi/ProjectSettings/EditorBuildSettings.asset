@@ -11,7 +11,10 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/ReceiverSample.unity
     guid: a57f434f3ee95b948ab14a32ee534821
-  - enabled: 1
+  - enabled: 0
     path: Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/GameMode.unity
     guid: 7da37c91c5825314eb6fcaf25fcd1796
+  - enabled: 1
+    path: Assets/MocopiReceiver/Samples/ReceiverSample/Scenes/GameMode-Halloween.unity
+    guid: c03bc98870c1ad143925566511d997c8
   m_configObjects: {}

@@ -147,6 +147,11 @@ public class MocopiLocalGameLoopController : MonoBehaviour
             SetStatus($"{DisplayName}: choose avatar");
         }
 
+        public void UseSharedDebugCamera(Camera camera, int layer)
+        {
+            if (debugMouseCollider != null) debugMouseCollider.SetViewCamera(camera, layer);
+        }
+
         public void ChooseAvatar(int index)
         {
             int avatarCount = GetAvatarChoiceCount();
@@ -501,6 +506,11 @@ public class MocopiLocalGameLoopController : MonoBehaviour
     public IReadOnlyList<LocalPlayerSlot> Players => players;
     public int ActivePlayerCount => GetActivePlayerCount();
     public bool DebugModeOn => debugModeOn;
+    // Selecting two players does not commit the camera layout until a mode is chosen.
+    private bool HasGameModeView => currentState >= GameLoopState.Ready;
+    public bool UsesSharedCoopView => HasGameModeView && gameMode == GameMode.Coop && GetActivePlayerCount() == 2;
+    public bool UsesSplitScreenView => HasGameModeView && gameMode == GameMode.Versus && GetActivePlayerCount() == 2;
+    public int ViewportCount => UsesSplitScreenView ? 2 : 1;
     public string StateMessage => GetStateMessage(currentState);
     public float GetReadyProgress(int index) => index < readyHoldTimes.Count
         ? Mathf.Clamp01(readyHoldTimes[index] / Mathf.Max(0.01f, readyHoldSeconds)) : 0;
@@ -567,6 +577,14 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         SetGameMode(GameMode.Versus);
     }
 
+    public void SetPlayerCount(int count)
+    {
+        selectedPlayerCount = Mathf.Clamp(count, 1, Mathf.Min(2, players.Count));
+        gameMode = selectedPlayerCount == 1 ? GameMode.Single : GameMode.Coop;
+        ChangeState(currentState == GameLoopState.MocopiConnectionWait && !ShouldSkipConnectionWait()
+            ? GameLoopState.MocopiConnectionWait : GameLoopState.AvatarSelection);
+    }
+
     public void SetGameMode(GameMode mode)
     {
         gameMode = mode;
@@ -609,7 +627,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         int connectedPlayers = GetConnectedPlayerCount();
         if (ShouldSkipConnectionWait())
         {
-            BeginConnectedPlayerFlow(gameMode == GameMode.Single ? 1 : 2);
+            BeginConnectedPlayerFlow(selectedPlayerCount);
             return;
         }
 
@@ -720,6 +738,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         StopCountdown();
         foreach (var player in players) player.ClearReadyVisuals();
         currentState = nextState;
+        if (nextState <= GameLoopState.Ready) ApplyModeLayout();
 
         SetActive(mocopiConnectionWaitPanel, nextState == GameLoopState.MocopiConnectionWait);
         SetActive(avatarSelectionPanel, nextState == GameLoopState.AvatarSelection);
@@ -745,8 +764,6 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         else if (nextState == GameLoopState.GameModeSelection)
         {
             StopAllRounds();
-            gameMode = gameMode == GameMode.Single ? GameMode.Coop : gameMode;
-            ApplyModeLayout();
         }
         else if (nextState == GameLoopState.Ready)
         {
@@ -787,7 +804,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
     {
         if (ShouldSkipConnectionWait())
         {
-            BeginConnectedPlayerFlow(gameMode == GameMode.Single ? 1 : 2);
+            BeginConnectedPlayerFlow(selectedPlayerCount);
             return;
         }
 
@@ -1116,7 +1133,14 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         for (int i = 0; i < players.Count; i++)
         {
             players[i].SetActive(i < activePlayerCount);
+            if (players[i].PlayerCamera != null)
+            {
+                players[i].PlayerCamera.enabled = i < ViewportCount;
+                players[i].PlayerCamera.cullingMask = 1 << (PlayerArenaLayers.One + i);
+            }
         }
+        var arenas = GetComponent<PlayerArenaIsolation>();
+        if (arenas != null) arenas.ApplyLayout();
         RefreshDebugMouseColliders();
 
         if (activePlayerCount <= 0)
@@ -1124,9 +1148,14 @@ public class MocopiLocalGameLoopController : MonoBehaviour
             return;
         }
 
-        if (activePlayerCount == 1)
+        if (!UsesSplitScreenView)
         {
             SetCameraRect(players[0].PlayerCamera, new Rect(0f, 0f, 1f, 1f));
+            if (UsesSharedCoopView)
+            {
+                players[0].PlayerCamera.cullingMask = (1 << PlayerArenaLayers.One) | (1 << PlayerArenaLayers.Two);
+                players[1].PlayerCamera.enabled = false;
+            }
             return;
         }
 
@@ -1145,10 +1174,13 @@ public class MocopiLocalGameLoopController : MonoBehaviour
     private void RefreshDebugMouseColliders()
     {
         for (int i = 0; i < players.Count; i++)
+        {
             players[i].SetDebugMouseCollision(
-                debugModeOn && debugUseMouseCollision && i < GetActivePlayerCount(),
+                debugModeOn && debugUseMouseCollision && i < (UsesSharedCoopView ? GetActivePlayerCount() : ViewportCount),
                 transform, debugMouseColliderRadius, debugMousePlaneZ, debugMouseRequiresClick,
                 debugMouseButton, debugMouseClickActiveSeconds, debugShowMouseCollider, debugMouseColliderColor);
+            if (UsesSharedCoopView) players[i].UseSharedDebugCamera(players[0].PlayerCamera, PlayerArenaLayers.One + i);
+        }
     }
 
     private bool HasRequiredMocopiCount()
@@ -1303,7 +1335,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
             case GameLoopState.Countdown:
                 return "Starting.";
             case GameLoopState.Playing:
-                return gameMode == GameMode.Single ? "1P run." : "Split-screen run.";
+                return gameMode == GameMode.Single ? "1P run." : UsesSharedCoopView ? "Co-op run." : "Split-screen run.";
             case GameLoopState.Result:
                 return "Run complete.";
             default:

@@ -129,6 +129,12 @@ public class DebugMousePlayerCollider : MonoBehaviour
         }
     }
 
+    public void SetViewCamera(Camera camera, int layer)
+    {
+        targetCamera = camera;
+        PlayerArenaLayers.Assign(gameObject, layer);
+    }
+
     private void ApplyPlayerIdentity()
     {
         if (initialized)
