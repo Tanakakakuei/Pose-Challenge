@@ -21,9 +21,53 @@ public sealed class HalloweenAtmosphere : MonoBehaviour
     private MaterialPropertyBlock glow;
     private int completed, failed;
     private float celebration;
+    private Transform[] groundDecorations;
+    private Vector3[] decorationPositions;
+    private float[] decorationHalfWidths;
+    private bool sharedDecorationLayout;
     private static readonly int Emission = Shader.PropertyToID("_Emission");
 
-    private void Awake() => glow = new MaterialPropertyBlock();
+    private void Awake()
+    {
+        glow = new MaterialPropertyBlock();
+        var decorations = new System.Collections.Generic.List<Transform>();
+        foreach (Transform child in transform)
+            if (child.name == "Jack-o-lantern" || child.name == "Distant grave marker") decorations.Add(child);
+        groundDecorations = decorations.ToArray();
+        decorationPositions = new Vector3[groundDecorations.Length];
+        decorationHalfWidths = new float[groundDecorations.Length];
+        for (int i = 0; i < groundDecorations.Length; i++)
+        {
+            var decoration = groundDecorations[i];
+            decorationPositions[i] = decoration.localPosition;
+            foreach (var renderer in decoration.GetComponentsInChildren<Renderer>(true))
+            {
+                Bounds bounds = renderer.bounds;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    Vector3 point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
+                        (corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+                    float x = transform.InverseTransformPoint(point).x;
+                    decorationHalfWidths[i] = Mathf.Max(decorationHalfWidths[i], Mathf.Abs(x - decorationPositions[i].x));
+                }
+            }
+        }
+    }
+    private void LateUpdate()
+    {
+        bool shared = controller != null && controller.UsesSharedCoopView;
+        if (shared == sharedDecorationLayout) return;
+        sharedDecorationLayout = shared;
+        for (int i = 0; i < groundDecorations.Length; i++)
+        {
+            Vector3 position = decorationPositions[i];
+            // Co-op walls span -5.25 to +5.25 m. Keep the entire prop beyond
+            // +/-5.8 m, with clearance for its size rather than just its centre.
+            if (shared && Mathf.Abs(position.x) > 0.001f)
+                position.x = Mathf.Sign(position.x) * Mathf.Max(Mathf.Abs(position.x), 5.8f + decorationHalfWidths[i]);
+            groundDecorations[i].localPosition = position;
+        }
+    }
     private void OnEnable()
     {
         if (controller != null) controller.OnStateChanged.AddListener(StateChanged);

@@ -110,7 +110,7 @@ public class GameModePresentation : MonoBehaviour
         anchorUntil = Time.unscaledTime + 0.5f;
         foreach (var hud in playerHuds) { hud.feedbackUntil = 0; hud.completed = hud.failures = 0; }
         foreach (var button in readyButtons)
-            button.SetLabel(controller.DebugModeOn ? "スタート" : "準備 OK");
+            button.SetLabel(controller.DebugModeOn || controller.UsesSharedCoopView ? "スタート" : "準備 OK");
         informationCard.SetActive(state != MocopiLocalGameLoopController.GameLoopState.Playing &&
                                   state != MocopiLocalGameLoopController.GameLoopState.Countdown);
         countdownLabel.gameObject.SetActive(state == MocopiLocalGameLoopController.GameLoopState.Countdown);
@@ -122,11 +122,14 @@ public class GameModePresentation : MonoBehaviour
     private void LateUpdate()
     {
         var state = controller.CurrentState;
+        bool sharedCoopCamera = controller.UsesSharedCoopView &&
+            (state == MocopiLocalGameLoopController.GameLoopState.Countdown || state == MocopiLocalGameLoopController.GameLoopState.Playing || state == MocopiLocalGameLoopController.GameLoopState.Result);
+        bool coopPreparation = controller.UsesSharedCoopView && !sharedCoopCamera;
         if (wasEnteringName && !leaderboardPanel.IsEnteringName) anchorUntil = Time.unscaledTime + 0.5f;
         wasEnteringName = leaderboardPanel.IsEnteringName;
         for (int i = 0; i < controller.ViewportCount; i++)
         {
-            if (controller.UsesSharedCoopView)
+            if (sharedCoopCamera)
             {
                 if (i == 0) UpdateSharedCamera();
                 continue;
@@ -137,7 +140,7 @@ public class GameModePresentation : MonoBehaviour
             var camera = player.PlayerCamera;
             Vector3 position = playCameraPositions[i];
             Quaternion rotation = playCameraRotations[i];
-            if (head != null && state != MocopiLocalGameLoopController.GameLoopState.Playing && state != MocopiLocalGameLoopController.GameLoopState.Countdown)
+            if (head != null && (coopPreparation || (state != MocopiLocalGameLoopController.GameLoopState.Playing && state != MocopiLocalGameLoopController.GameLoopState.Countdown)))
             {
                 Vector3 forward = Vector3.ProjectOnPlane(rotation * Vector3.forward, Vector3.up).normalized;
                 // Keep the physical touch targets reachable; widen the camera framing in narrow windows.
@@ -149,13 +152,16 @@ public class GameModePresentation : MonoBehaviour
                 position.y = TouchStationWorldHeight - (distance + 0.35f) * halfFov * 0.2f;
                 rotation = Quaternion.LookRotation(forward, Vector3.up);
             }
+            // Pull menu and solo/versus views back by one metre at the same height.
+            // The shared co-op camera is handled separately above.
+            position -= Vector3.ProjectOnPlane(rotation * Vector3.forward, Vector3.up).normalized;
             float blend = 1 - Mathf.Exp(-10 * Time.unscaledDeltaTime);
             camera.transform.SetPositionAndRotation(Vector3.Lerp(camera.transform.position, position, blend), Quaternion.Slerp(camera.transform.rotation, rotation, blend));
         }
         foreach (var station in stations)
         {
             // Keep physical retry/menu controls, but prevent stray touches during keyboard entry.
-            bool active = station.playerIndex < (controller.UsesSharedCoopView ? controller.ActivePlayerCount : controller.ViewportCount) &&
+            bool active = station.playerIndex < (sharedCoopCamera ? controller.ActivePlayerCount : controller.ViewportCount) &&
                 !leaderboardPanel.IsEnteringName;
             station.root.gameObject.SetActive(active);
             if (!active || !station.root.gameObject.activeInHierarchy || (Time.unscaledTime > anchorUntil && !controller.UsesSharedCoopView)) continue;
@@ -187,12 +193,12 @@ public class GameModePresentation : MonoBehaviour
         footerLabel.text = state == MocopiLocalGameLoopController.GameLoopState.Playing
             ? $"壁の穴にポーズを合わせよう  ·  ぶつかったブロックが {controller.Players[0].WallManager.GetSafeHitThreshold()} 個以内ならクリア"
             : state == MocopiLocalGameLoopController.GameLoopState.Result
-            ? (leaderboardPanel.IsEnteringName ? "ランクイン！ キーボードで名前を入力し「登録」 · スキップもできます" : "もう一度挑戦するか、アバター選択に戻れます")
+            ? (leaderboardPanel.IsEnteringName ? "ランクイン！ キーボードで名前を入力し「登録」 · スキップもできます" : "もう一度挑戦するか、準備・モード選択に戻れます")
             : "手で少し触れ続けると決定  ·  マウスでもクリックできます";
 
         if (state == MocopiLocalGameLoopController.GameLoopState.Ready)
         {
-            messageLabel.text = controller.DebugModeOn ? "準備ができたら「スタート」\n5 秒のカウントダウン後に始まります" : "頭の上で両手を合わせて、2 秒キープ\nまたは、それぞれの「準備 OK」にタッチ";
+            messageLabel.text = controller.DebugModeOn ? "準備ができたら「スタート」\n5 秒のカウントダウン後に始まります" : controller.UsesSharedCoopView ? "二人とも準備ができたら、1Pの「スタート」\nまたは二人で頭の上に両手を合わせて、2 秒キープ" : "頭の上で両手を合わせて、2 秒キープ\nまたは、それぞれの「準備 OK」にタッチ";
             for (int i = 0; i < controller.ActivePlayerCount; i++)
                 if (controller.GetReadyProgress(i) > 0)
                     messageLabel.text += $"\n{i + 1}P  {Mathf.RoundToInt(controller.GetReadyProgress(i) * 100)}%";
@@ -276,7 +282,8 @@ public class GameModePresentation : MonoBehaviour
         Vector3 center = arenas.SharedCenter;
         // Frame both six metre lanes, their full height and the common floor ring.
         float halfFov = Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f);
-        float distance = Mathf.Max(12.5f, 6.8f / (halfFov * Mathf.Max(0.2f, camera.aspect)));
+        float distance = Mathf.Max(12.5f * Mathf.Tan(30f * Mathf.Deg2Rad) / halfFov,
+            6.8f / (halfFov * Mathf.Max(0.2f, camera.aspect)));
         Vector3 target = center + new Vector3(0, 0.9f, 1f);
         camera.transform.SetPositionAndRotation(target + new Vector3(0, distance * 0.28f, -distance),
             Quaternion.LookRotation(new Vector3(0, -0.28f, 1), Vector3.up));
@@ -340,7 +347,16 @@ public class GameModePresentation : MonoBehaviour
         resultViewportActive = result;
     }
 
-    public void ReadyPlayer1() { if (controller.DebugModeOn) controller.StartDebugRound(); else controller.MarkPlayer1Ready(); }
+    public void ReadyPlayer1()
+    {
+        if (controller.DebugModeOn) controller.StartDebugRound();
+        else if (controller.UsesSharedCoopView && controller.CurrentState == MocopiLocalGameLoopController.GameLoopState.Ready)
+        {
+            // Co-op preparation has a single, reachable menu operated by 1P.
+            for (int i = 0; i < controller.ActivePlayerCount; i++) controller.SetPlayerReady(i, true);
+        }
+        else controller.MarkPlayer1Ready();
+    }
     public void ReadyPlayer2() { if (controller.DebugModeOn) controller.StartDebugRound(); else controller.MarkPlayer2Ready(); }
     public void TogglePlayers() => controller.SetPlayerCount(controller.ActivePlayerCount == 1 ? 2 : 1);
     public void TryMouseMode() => controller.SetDebugMode(true);

@@ -65,11 +65,12 @@ Shader "Mocopi/Neon Arena Surface"
                 else if(_Mode>0.5)
                 {
                     float distanceFade=1-smoothstep(12,65,distance(i.world,_WorldSpaceCameraPos));
-                    float g=grid(i.world.xz*0.5,0.004);
+                    float g=grid(i.world.xz*0.5,0.009);
                     float lane=1-smoothstep(0.018,0.055,abs(abs(i.world.x)-4.8));
                     float wash=exp(-abs(abs(i.world.x)-4.8)*2.5)*0.08;
                     float pulse=pow(0.5+0.5*sin(i.world.z*0.7-_Time.y*0.65),16);
-                    c+=_NeonColor.rgb*(g*0.045*distanceFade+lane*0.55+wash+pulse*lane*0.12)*_Glow;
+                    c+=float3(1.3,1.05,0.035)*g*0.65*distanceFade*_Glow;
+                    c+=_NeonColor.rgb*(lane*0.55+wash+pulse*lane*0.12)*_Glow;
                     c+=float3(0.03,0.012,0.055)*pow(saturate(1-abs(i.world.x)/10),2);
                 }
                 float4 result=float4(c,1); UNITY_APPLY_FOG(i.fogCoord,result); return result;

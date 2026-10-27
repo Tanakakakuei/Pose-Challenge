@@ -138,13 +138,13 @@ public class MocopiLocalGameLoopController : MonoBehaviour
             debugMouseCollider.gameObject.SetActive(true);
         }
 
-        public void PrepareAvatarSelection()
+        public void PrepareFixedAvatar()
         {
-            selectedAvatarIndex = Mathf.Clamp(selectedAvatarIndex, 0, Mathf.Max(0, GetAvatarChoiceCount() - 1));
+            selectedAvatarIndex = 0;
             ApplySelectedAvatar();
             readyConfirmed = false;
             lastResult = default;
-            SetStatus($"{DisplayName}: choose avatar");
+            SetStatus($"{DisplayName}: {AvatarDisplayName}");
         }
 
         public void UseSharedDebugCamera(Camera camera, int layer)
@@ -155,7 +155,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         public void ChooseAvatar(int index)
         {
             int avatarCount = GetAvatarChoiceCount();
-            selectedAvatarIndex = avatarCount > 0 ? Mathf.Clamp(index, 0, avatarCount - 1) : 0;
+            selectedAvatarIndex = 0; // Character identity is fixed for each player slot.
             ApplySelectedAvatar();
             SetStatus($"{DisplayName}: avatar {selectedAvatarIndex + 1}");
         }
@@ -518,6 +518,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
     private void Awake()
     {
         EnsurePlayerLists();
+        PrepareFixedAvatars();
         SubscribeWallManagers();
         ApplyModeLayout();
     }
@@ -733,6 +734,9 @@ public class MocopiLocalGameLoopController : MonoBehaviour
 
     private void ChangeState(GameLoopState nextState)
     {
+        // Preserve serialized enum values and old UnityEvents, but skip the removed screen.
+        if (nextState == GameLoopState.AvatarSelection)
+            nextState = GetActivePlayerCount() >= 2 ? GameLoopState.GameModeSelection : GameLoopState.Ready;
         // Leaving the round also cancels any pending result transition.
         resultDisplayAt = -1;
         StopCountdown();
@@ -741,7 +745,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         if (nextState <= GameLoopState.Ready) ApplyModeLayout();
 
         SetActive(mocopiConnectionWaitPanel, nextState == GameLoopState.MocopiConnectionWait);
-        SetActive(avatarSelectionPanel, nextState == GameLoopState.AvatarSelection);
+        SetActive(avatarSelectionPanel, false);
         SetActive(gameModeSelectionPanel, nextState == GameLoopState.GameModeSelection);
         SetActive(readyPanel, nextState == GameLoopState.Ready);
         SetActive(countdownPanel, nextState == GameLoopState.Countdown);
@@ -753,14 +757,9 @@ public class MocopiLocalGameLoopController : MonoBehaviour
             StopAllRounds();
             ResetRounds();
             // Both receivers must stay alive while detecting a second player.
-            foreach (var player in players) player.PrepareAvatarSelection();
+            foreach (var player in players) player.PrepareFixedAvatar();
         }
-        else if (nextState == GameLoopState.AvatarSelection)
-        {
-            StopAllRounds();
-            ResetRounds();
-            PrepareAvatarSelection();
-        }
+
         else if (nextState == GameLoopState.GameModeSelection)
         {
             StopAllRounds();
@@ -789,11 +788,11 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         onStateChanged.Invoke(currentState);
     }
 
-    private void PrepareAvatarSelection()
+    private void PrepareFixedAvatars()
     {
-        for (int i = 0; i < GetActivePlayerCount(); i++)
+        for (int i = 0; i < players.Count; i++)
         {
-            players[i].PrepareAvatarSelection();
+            players[i].PrepareFixedAvatar();
             var camera = players[i].PlayerCamera;
             if (camera != null && camera.TryGetComponent<MocopiFirstPersonCamera>(out var follow))
                 follow.SetTargetAnimator(players[i].ReadyPoseAnimator);
@@ -1362,7 +1361,7 @@ public class MocopiLocalGameLoopController : MonoBehaviour
         int connectedPlayers = GetConnectedPlayerCount();
         if (connectedPlayers >= 2)
         {
-            lines.Add("2P detected. Moving to avatar selection.");
+            lines.Add("2P detected. Choose Co-op or Versus.");
         }
         else if (connectedPlayers == 1 && IsPlayerMocopiConnected(0))
         {

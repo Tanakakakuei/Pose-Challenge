@@ -124,7 +124,9 @@ public class WallMaskData : MonoBehaviour
         RefreshMask(transform);
     }
 
-    public void ApplyMask(Transform wallTransform)
+    public void ApplyMask(Transform wallTransform) => ApplyMask(wallTransform, 0f);
+
+    public void ApplyMask(Transform wallTransform, float visibleWidthMeters)
     {
         WallCube[] cubes = wallTransform.GetComponentsInChildren<WallCube>(true);
         if (maskSource != MaskSource.SavedMask && cubes.Length != wallHeight * wallWidth)
@@ -137,6 +139,11 @@ public class WallMaskData : MonoBehaviour
         }
 
         RefreshMask(wallTransform);
+        if (visibleWidthMeters > 0f)
+        {
+            GetWallLocalSize(wallTransform, out float authoredWidth, out _);
+            mask = WallMaskFitting.FitToWidth(mask, authoredWidth, visibleWidthMeters);
+        }
 
         bool appliedByName = false;
         foreach (WallCube cube in cubes)

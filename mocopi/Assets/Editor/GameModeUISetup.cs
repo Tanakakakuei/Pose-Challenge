@@ -156,6 +156,7 @@ public static class GameModeUISetup
         string[] names = { "Connection", "AvatarSelection", "ModeSelection", "Ready", "Countdown", "Playing", "Result" };
         for (int state = 0; state < fields.Length; state++)
         {
+            if (state == 1) { settings.FindProperty(fields[state]).objectReferenceValue = null; continue; }
             var group = new GameObject(names[state]); group.transform.SetParent(root.transform, false);
             settings.FindProperty(fields[state]).objectReferenceValue = group;
             for (int player = 0; player < 2; player++)
@@ -167,13 +168,13 @@ public static class GameModeUISetup
                 switch (state)
                 {
                     case 0: Button(station, "接続を確認", -0.41f, loop.ConfirmMocopiConnected); Button(station, "マウスで試す", 0.41f, view.TryMouseMode); break;
-                    case 1: Button(station, "このアバターで進む", -0.41f, loop.ConfirmAvatarSelection); Button(station, "1人 / 2人 切り替え", 0.41f, view.TogglePlayers); break;
+                    
                     case 2: Button(station, "協力プレイ", -0.41f, loop.SetCoopMode); Button(station, "対戦プレイ", 0.41f, loop.SetVersusMode); break;
-                    case 3: ready.Add(Button(station, "準備 OK", -0.41f, player == 0 ? view.ReadyPlayer1 : view.ReadyPlayer2)); Button(station, "選び直す", 0.41f, loop.ReturnToAvatarSelection); break;
+                    case 3: ready.Add(Button(station, "準備 OK", -0.41f, player == 0 ? view.ReadyPlayer1 : view.ReadyPlayer2)); Button(station, "1人 / 2人 切り替え", 0.41f, view.TogglePlayers); break;
                     case 6: Button(station, "もう一度！", -0.41f, loop.Retry); Button(station, "選択に戻る", 0.41f, loop.ReturnToAvatarSelection); break;
                 }
             }
-            group.SetActive(state == 1);
+            group.SetActive(state == 0);
         }
         view.stations = anchors.ToArray(); view.readyButtons = ready.ToArray();
         settings.FindProperty("stateTitleText").objectReferenceValue = view.titleLabel;
@@ -181,8 +182,8 @@ public static class GameModeUISetup
         settings.FindProperty("countdownText").objectReferenceValue = view.countdownLabel;
         settings.FindProperty("resultText").objectReferenceValue = view.resultLabel;
         settings.ApplyModifiedPropertiesWithoutUndo();
-        view.titleLabel.text = "アバターを確認";
-        view.messageLabel.text = "ポーズを合わせて、壁をくぐろう\n準備ができたら次へ";
+        view.titleLabel.text = "mocopi を接続";
+        view.messageLabel.text = "1P: MAO   /   2P: Suguru\n接続後にゲームを始めます";
         view.scoreLabel.text = "POSE / PASS";
         Canvas.ForceUpdateCanvases();
         GameModePresentation.ConfigureHud((RectTransform)hud, false);

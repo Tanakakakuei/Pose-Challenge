@@ -12,6 +12,8 @@ public class WallManager : MonoBehaviour
     [Header("Wall")]
     [SerializeField] private GameObject wallPrefab;
     [SerializeField] private Transform spawnPoint;
+    [Tooltip("Visible wall width in metres. Zero preserves the complete authored grid.")]
+    [SerializeField, Min(0f)] private float wallWidthMeters;
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float destroyDistance = -10f;
     [SerializeField] private float spawnInterval = 3f;
@@ -164,11 +166,37 @@ public class WallManager : MonoBehaviour
         // since WallMaskData initializes its grid there.
         newWall.SetActive(true);
         ApplyWallMask(newWall, wallLetter);
+        ApplyWallWidth(newWall);
         activeWalls.Add(newWall);
         spawnedWallCount++;
         OnProgressChanged?.Invoke(completedWallCount, wallCount);
 
         PrepareNextLetter();
+    }
+
+    private void ApplyWallWidth(GameObject wall)
+    {
+        if (wallWidthMeters <= 0f) return;
+        float halfWidth = wallWidthMeters * 0.5f / Mathf.Max(0.0001f, Mathf.Abs(wall.transform.lossyScale.x));
+        // Crop the outer cells after fitting the complete hole inside this width.
+        // Keep the authored grid dimensions compatible with saved pose files.
+        foreach (var cube in wall.GetComponentsInChildren<WallCube>(true))
+        {
+            var cell = cube.transform;
+            float halfCell = Mathf.Abs(cell.localScale.x) * 0.5f;
+            float left = Mathf.Max(-halfWidth, cell.localPosition.x - halfCell);
+            float right = Mathf.Min(halfWidth, cell.localPosition.x + halfCell);
+            if (right - left <= 0.0001f)
+            {
+                cube.gameObject.SetActive(false);
+                continue;
+            }
+            Vector3 position = cell.localPosition, scale = cell.localScale;
+            position.x = (left + right) * 0.5f;
+            scale.x = right - left;
+            cell.localPosition = position;
+            cell.localScale = scale;
+        }
     }
 
     private void ApplyWallMask(GameObject wall, char letter)
@@ -200,7 +228,8 @@ public class WallManager : MonoBehaviour
             wall.name = $"Wall_{letter}";
         }
 
-        maskData.ApplyMask(wall.transform);
+        float localWidth = wallWidthMeters / Mathf.Max(0.0001f, Mathf.Abs(wall.transform.lossyScale.x));
+        maskData.ApplyMask(wall.transform, localWidth);
     }
 
     private Animator ResolvePoseMaskAnimator()
